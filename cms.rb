@@ -2,7 +2,10 @@
 
 require 'sinatra'
 require 'sinatra/reloader'
+require 'tilt/erubis'
 
 get '/' do
-  'Getting started'
+  @files = Dir['data/*'].select { |path| File.file?(path) }
+  @files = @files.map! { |file| File.basename(file) }
+  erb :list
 end
