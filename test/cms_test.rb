@@ -17,17 +17,25 @@ class CMSTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_match 'about.txt', last_response.body
+    assert_match 'about.md', last_response.body
     assert_match 'changes.txt', last_response.body
     assert_match 'history.txt', last_response.body
   end
 
   def test_viewing_text_document
-    get '/about.txt'
+    get '/history.txt'
 
     assert_equal 200, last_response.status
     assert_equal 'text/plain;charset=utf-8', last_response['Content-Type']
-    assert_equal File.read('data/about.txt'), last_response.body
+    assert_equal File.read('data/history.txt'), last_response.body
+  end
+
+  def test_viewing_markup_document
+    get '/about.md'
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_match '<h1>Jan Amos Komenský</h1>', last_response.body
   end
 
   def test_nonexisting_document
