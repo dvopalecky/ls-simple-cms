@@ -1,14 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Document</title>
-</head>
-<body>
-  <ul>
-    <% @files.each do |file| %>
-      <li><a href="/<%= file %>"><%= file %></a></li>
-    <% end %>
-  </ul>
-</body>
-</html>
+<ul>
+  <% @files.each do |file| %>
+    <li><a href="/<%= file %>"><%= file %></a></li>
+  <% end %>
+</ul>
