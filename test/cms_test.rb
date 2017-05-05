@@ -15,6 +15,7 @@ class CMSTest < Minitest::Test
 
   def setup
     FileUtils.mkdir_p(data_path)
+    sign_in
   end
 
   def teardown
@@ -29,12 +30,30 @@ class CMSTest < Minitest::Test
     end
   end
 
+  def sign_in
+    get '/autosignin'
+  end
+
+  def sign_off
+    get '/autosignoff'
+  end
+
   def assert_message(location, message)
     get location
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_match message, last_response.body
+  end
+
+  def test_index_signed_off
+    sign_off
+    get '/'
+
+    assert_equal 200, last_response.status
+    assert_match "You're signed off", last_response.body
+    assert_match '<button', last_response.body
+    assert_match 'href="/users/signin"', last_response.body
   end
 
   def test_index
@@ -50,6 +69,17 @@ class CMSTest < Minitest::Test
     assert_match '<a href="/about.md/edit">Edit</a>', last_response.body
     assert_match '<a href="/new">New document</a>', last_response.body
     assert_match '<form action="/changes.txt/delete"', last_response.body
+    assert_match '<button', last_response.body
+  end
+
+  def test_sign_in_page
+    sign_off
+    get '/users/signin'
+
+    assert_equal 200, last_response.status
+    assert_match "Username", last_response.body
+    assert_match "Password", last_response.body
+    assert_match "<form", last_response.body
     assert_match '<button', last_response.body
   end
 

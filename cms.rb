@@ -37,12 +37,32 @@ def validate_filename(filename)
   end
 end
 
+def user_signed_in?
+  session[:signed_in]
+end
+
+get '/autosignin' do
+  session[:signed_in] = true
+  session[:message] = "You were signed in."
+  redirect '/'
+end
+
+get '/autosignoff' do
+  session[:signed_in] = nil
+  session[:message] = "You were signed off."
+  redirect '/'
+end
+
 # Show index
 get '/' do
-  pattern = File.join(data_path, '*')
-  @files = Dir[pattern].select { |path| File.file?(path) }
-  @files = @files.map! { |file| File.basename(file) }
-  erb :index
+  if user_signed_in?
+    pattern = File.join(data_path, '*')
+    @files = Dir[pattern].select { |path| File.file?(path) }
+    @files = @files.map! { |file| File.basename(file) }
+    erb :index
+  else
+    erb :signed_off
+  end
 end
 
 # Create new document
@@ -58,6 +78,16 @@ post '/' do
     session[:message] = validation_msg
     status 422
     erb :new
+  end
+end
+
+# Show sign in page
+get '/users/signin' do
+  if user_signed_in?
+    session[:message] = "You're already signed in"
+    redirect '/'
+  else
+    erb :sign_in
   end
 end
 
