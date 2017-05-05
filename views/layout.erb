@@ -3,12 +3,13 @@
   <head>
     <title>Simple CMS App</title>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/styles/style.css">
   </head>
   <body>
     <% if session[:message] %>
-      <div>
-        <p><%= session.delete(:message) %></p>
-      </div>
+      <p class="message">
+        <%= session.delete(:message) %>
+      </p>
     <% end %>
     <main>
       <%== yield %>
