@@ -49,6 +49,8 @@ class CMSTest < Minitest::Test
     assert_match 'changes.txt', last_response.body
     assert_match '<a href="/about.md/edit">Edit</a>', last_response.body
     assert_match '<a href="/new">New document</a>', last_response.body
+    assert_match '<form action="/changes.txt/delete"', last_response.body
+    assert_match '<button', last_response.body
   end
 
   def test_view_new_document_form
@@ -183,5 +185,32 @@ class CMSTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     refute_match "notafile.txt doesn't exist.", last_response.body
+  end
+
+  def test_delete_document
+    create_document 'file.txt', 'something random'
+
+    post '/file.txt/delete'
+
+    assert_equal 302, last_response.status
+
+    redirected_location = last_response["Location"]
+    message = "file.txt deleted successfully."
+    assert_message(redirected_location, message)
+    assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
+
+    get redirected_location
+    refute_match message, last_response.body
+  end
+
+  def test_delete_nonnexisting_document
+    post '/file.txt/delete'
+
+    assert_equal 302, last_response.status
+
+    redirected_location = last_response["Location"]
+    message = "Can't delete non-existing document file.txt"
+    assert_message(redirected_location, message)
+    assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
   end
 end

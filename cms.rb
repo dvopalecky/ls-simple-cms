@@ -108,3 +108,16 @@ get '/:filename/edit' do
     redirect '/'
   end
 end
+
+# Delete document
+post '/:filename/delete' do
+  @filename = params[:filename]
+  path = File.join(data_path, @filename)
+  if File.file?(path)
+    File.delete(path)
+    session[:message] = "#{@filename} deleted successfully."
+  else
+    session[:message] = "Can't delete non-existing document #{@filename}."
+  end
+  redirect '/'
+end
