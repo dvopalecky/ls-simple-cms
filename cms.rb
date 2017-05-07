@@ -38,18 +38,18 @@ def validate_filename(filename)
 end
 
 def user_signed_in?
-  session[:signed_in]
+  session[:signed_in_user]
 end
 
 get '/autosignin' do
-  session[:signed_in] = true
+  session[:signed_in_user] = 'admin'
   session[:message] = "You were signed in."
   redirect '/'
 end
 
 get '/autosignoff' do
-  session[:signed_in] = nil
-  session[:message] = "You were signed off."
+  session.delete :signed_in_user
+  session[:message] = "You were signed out."
   redirect '/'
 end
 
@@ -83,12 +83,33 @@ end
 
 # Show sign in page
 get '/users/signin' do
+    erb :sign_in
+end
+
+# Sign in
+post '/users/signin' do
   if user_signed_in?
     session[:message] = "You're already signed in"
     redirect '/'
   else
-    erb :sign_in
+    if params[:username] == 'admin' && params[:password] == 'secret'
+      session[:signed_in_user] = params[:username]
+      session[:message] = 'Welcome!'
+      redirect '/'
+    else
+      session[:message] = 'Invalid credentials'
+      @username = params[:username]
+      status 422
+      erb :sign_in
+    end
   end
+end
+
+# Sign out
+post '/users/signout' do
+  session.delete :signed_in_user
+  session[:message] = 'You have been signed out.'
+  redirect '/'
 end
 
 # Show form for new document

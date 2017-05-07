@@ -10,3 +10,9 @@
   <% end %>
 </ul>
 <p><a href="/new">New document</a></p>
+<p>
+  <form action="/users/signout" method="post" class="inline">
+    <em>Signed in as <%= session[:signed_in_user] %></em>
+    <button type="submit" name="signout">Sign out</button>
+  </form>
+</p>

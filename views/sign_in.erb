@@ -1,13 +1,13 @@
 <form action="/users/signin" method="post">
-  <div class="">
+  <div>
     <label for="username">Username:</label>
-    <input type="text" name="username" value="">
+    <input type="text" name="username" value="<%= @username %>">
   </div>
-  <div class="">
+  <div>
     <label for="password">Password:</label>
     <input type="password" name="password" value="">
   </div>
-  <div class="">
+  <div>
     <button type="submit" name="sign_in">Sign in</button>
   </div>
 </form>

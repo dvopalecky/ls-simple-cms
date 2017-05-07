@@ -38,7 +38,7 @@ class CMSTest < Minitest::Test
     get '/autosignoff'
   end
 
-  def assert_message(location, message)
+  def get_response_and_assert_message(location, message)
     get location
 
     assert_equal 200, last_response.status
@@ -70,17 +70,52 @@ class CMSTest < Minitest::Test
     assert_match '<a href="/new">New document</a>', last_response.body
     assert_match '<form action="/changes.txt/delete"', last_response.body
     assert_match '<button', last_response.body
+    assert_match 'Signed in as admin', last_response.body
+    assert_match 'Sign out', last_response.body
   end
 
-  def test_sign_in_page
+  def test_sign_in_form
     sign_off
     get '/users/signin'
 
     assert_equal 200, last_response.status
-    assert_match "Username", last_response.body
-    assert_match "Password", last_response.body
-    assert_match "<form", last_response.body
+    assert_match 'Username', last_response.body
+    assert_match 'Password', last_response.body
+    assert_match '<form', last_response.body
     assert_match '<button', last_response.body
+  end
+
+  def test_sign_in_valid_credentials
+    sign_off
+    post '/users/signin', username: 'admin', password: 'secret'
+
+    assert_equal 302, last_response.status
+    redirected_location = last_response['Location']
+
+    message = 'Welcome!'
+    get_response_and_assert_message(redirected_location, message)
+  end
+
+  def test_sign_in_invalid_credentials
+    sign_off
+    post '/users/signin', username: 'test', password: 'test'
+
+    assert_equal 422, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    message = 'Invalid credentials'
+    assert_match message, last_response.body
+    assert_match '<input type="text" name="username" value="test">',
+                 last_response.body
+  end
+
+  def test_sign_out
+    post '/users/signout'
+
+    assert_equal 302, last_response.status
+
+    message = 'You have been signed out.'
+    get_response_and_assert_message last_response['Location'], message
+    assert_match "You're signed off", last_response.body
   end
 
   def test_view_new_document_form
@@ -120,10 +155,10 @@ class CMSTest < Minitest::Test
     post '/', name: 'hello'
 
     assert_equal 422, last_response.status
-    assert_match "Document must have .md or .txt extensions", last_response.body
+    assert_match 'Document must have .md or .txt extensions', last_response.body
   end
 
-  def test_create_new_document_
+  def test_create_new_document_empty_name
     post '/', name: ''
 
     assert_equal 422, last_response.status
@@ -197,7 +232,7 @@ class CMSTest < Minitest::Test
     assert_equal 302, last_response.status
 
     message = "Can't edit non-existing document changes.txt"
-    assert_message(last_response['Location'], message)
+    get_response_and_assert_message(last_response['Location'], message)
   end
 
   def test_nonexisting_document
@@ -208,7 +243,7 @@ class CMSTest < Minitest::Test
     redirected_location = last_response["Location"]
 
     message = "notafile.txt doesn't exist."
-    assert_message(redirected_location, message)
+    get_response_and_assert_message(redirected_location, message)
 
     get redirected_location
 
@@ -226,7 +261,7 @@ class CMSTest < Minitest::Test
 
     redirected_location = last_response["Location"]
     message = "file.txt deleted successfully."
-    assert_message(redirected_location, message)
+    get_response_and_assert_message(redirected_location, message)
     assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
 
     get redirected_location
@@ -240,7 +275,7 @@ class CMSTest < Minitest::Test
 
     redirected_location = last_response["Location"]
     message = "Can't delete non-existing document file.txt"
-    assert_message(redirected_location, message)
+    get_response_and_assert_message(redirected_location, message)
     assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
   end
 end
