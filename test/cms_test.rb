@@ -20,6 +20,7 @@ class CMSTest < Minitest::Test
   def teardown
     FileUtils.rm Dir[File.join(data_path, "*.md")]
     FileUtils.rm Dir[File.join(data_path, "*.txt")]
+    FileUtils.rm Dir[File.join(data_path, "invalid_extension.rb")]
     FileUtils.rmdir data_path
   end
 
@@ -222,7 +223,15 @@ class CMSTest < Minitest::Test
     get "/about.md/edit", {}, admin_session
 
     assert_equal 302, last_response.status
-    assert_equal "Can't edit non-existing document about.md", session[:message]
+    assert_equal "Can't edit non-existing document.", session[:message]
+  end
+
+  def test_view_edit_form_invalid_document
+    create_document "invalid_extension.rb", "something"
+    get "/invalid_extension.rb/edit", {}, admin_session
+
+    assert_equal 302, last_response.status
+    assert_equal "Can't edit non-existing document.", session[:message]
   end
 
   def test_updating_existing_document
@@ -251,14 +260,14 @@ class CMSTest < Minitest::Test
     post "/changes.txt", { content: "new content" }, admin_session
 
     assert_equal 302, last_response.status
-    assert_equal "Can't edit non-existing document changes.txt",
+    assert_equal "Can't edit non-existing document.",
                  session[:message]
   end
 
   def test_nonexisting_document
     get "/notafile.txt"
     assert_equal 302, last_response.status
-    assert_equal "notafile.txt doesn't exist.", session[:message]
+    assert_equal "File doesn't exist.", session[:message]
 
     get last_response["Location"]
     assert_nil session[:message]
@@ -289,7 +298,7 @@ class CMSTest < Minitest::Test
     post "/file.txt/delete", {}, admin_session
 
     assert_equal 302, last_response.status
-    assert_equal "Can't delete non-existing document file.txt.",
+    assert_equal "Can't delete non-existing document.",
                  session[:message]
     assert_equal false, File.file?(File.join(data_path, "file.txt"))
   end
