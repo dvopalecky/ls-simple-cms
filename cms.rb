@@ -43,12 +43,15 @@ def load_file_content(path)
   end
 end
 
+def credentials_path
+  if ENV["RACK_ENV"] == "test"
+    File.expand_path("../test/users.yml", __FILE__)
+  else
+    File.expand_path("../users.yml", __FILE__)
+  end
+end
+
 def load_users_credentials
-  credentials_path = if ENV["RACK_ENV"] == "test"
-                       File.expand_path("../test/users.yml", __FILE__)
-                     else
-                       File.expand_path("../users.yml", __FILE__)
-                     end
   YAML.load_file(credentials_path)
 end
 
@@ -111,6 +114,12 @@ def valid_login?(username, input_password)
   bcrypt_password == input_password
 end
 
+def valid_new_username?(username)
+  return false if load_users_credentials.key?(username)
+  return false if /\W/ =~ username
+  true
+end
+
 # ROUTES
 # -----------------------------------------------------------------------------
 # Show index
@@ -169,6 +178,28 @@ post "/users/signout" do
   session.delete :signed_in_user
   session[:message] = "You have been signed out."
   redirect "/"
+end
+
+# Show sign up page
+get "/users/signup" do
+  erb :sign_up
+end
+
+# Sign up new user
+post "/users/signup" do
+  username = params[:username]
+  if valid_new_username?(username)
+    credentials = load_users_credentials
+    credentials[username] = BCrypt::Password::create(params[:password]).to_s
+    session[:message] = "User #{username} successfully created"
+    File.write(credentials_path, credentials.to_yaml)
+    redirect '/users/signin'
+  else
+    session[:message] = "Invalid username."\
+      "Username already exists or contains invalid characters."
+    status 422
+    erb :sign_up
+  end
 end
 
 # Show form for new document

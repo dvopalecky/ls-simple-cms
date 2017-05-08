@@ -21,6 +21,7 @@ class CMSTest < Minitest::Test
     FileUtils.rm Dir[File.join(data_path, "*.md")]
     FileUtils.rm Dir[File.join(data_path, "*.txt")]
     FileUtils.rm Dir[File.join(data_path, "invalid_extension.rb")]
+    FileUtils.rm Dir[credentials_path]
     FileUtils.rmdir data_path
   end
 
@@ -28,6 +29,10 @@ class CMSTest < Minitest::Test
     File.open(File.join(data_path, name), "w") do |file|
       file.write(content)
     end
+  end
+
+  def create_users_yml
+    File.write(credentials_path, "---\nadmin: $2a$10$0gzcsE5GciHDrKiiuOASJeTpTUxIPKMEe7/PpaymkWzLIm0yzco/K\n")
   end
 
   def admin_session
@@ -74,9 +79,11 @@ class CMSTest < Minitest::Test
     assert_match "Password", last_response.body
     assert_match "<form", last_response.body
     assert_match "<button", last_response.body
+    assert_match %q(<a href="/users/signup">Sign up</a>), last_response.body
   end
 
   def test_sign_in_valid_credentials
+    create_users_yml
     post "/users/signin", username: "admin", password: "secret"
 
     assert_equal 302, last_response.status
@@ -85,6 +92,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_sign_in_invalid_credentials
+    create_users_yml
     post "/users/signin", username: "test", password: "test"
 
     assert_equal 422, last_response.status
@@ -96,6 +104,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_sign_in_only_username
+    create_users_yml
     post "/users/signin", username: "test"
 
     assert_equal 422, last_response.status
@@ -115,6 +124,38 @@ class CMSTest < Minitest::Test
 
     get last_response["Location"]
     assert_match "You're signed off", last_response.body
+  end
+
+  def test_sign_up_form
+    get "/users/signup"
+
+    assert_equal 200, last_response.status
+    assert_match "New username", last_response.body
+    assert_match "New password", last_response.body
+    assert_match "<form", last_response.body
+    assert_match "<button", last_response.body
+  end
+
+  def test_sign_up
+    create_users_yml
+    post "/users/signup", { username: "newuser", password: "spiderman" }
+
+    assert_equal 302, last_response.status
+    assert_equal "User newuser successfully created", session[:message]
+
+    post "/users/signin", username: "newuser", password: "spiderman"
+
+    assert_equal 302, last_response.status
+    assert_equal "Welcome!", session[:message]
+    assert_equal "newuser", session[:signed_in_user]
+  end
+
+  def test_sign_up_existing_user
+    create_users_yml
+    post "/users/signup", { username: "admin", password: "spiderman" }
+
+    assert_equal 422, last_response.status
+    assert_match "Username already exists", last_response.body
   end
 
   def test_view_new_document_form
