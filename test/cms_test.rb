@@ -58,6 +58,7 @@ class CMSTest < Minitest::Test
     assert_match "about.md", last_response.body
     assert_match "changes.txt", last_response.body
     assert_match %q(<a href="/about.md/edit">Edit</a>), last_response.body
+    assert_match %q(<a href="/about.md/duplicate">Duplicate</a>), last_response.body
     assert_match %q(<a href="/new">New document</a>), last_response.body
     assert_match %q(<form action="/changes.txt/delete"), last_response.body
     assert_match "<button", last_response.body
@@ -271,6 +272,64 @@ class CMSTest < Minitest::Test
 
     get last_response["Location"]
     assert_nil session[:message]
+  end
+
+  def test_view_duplicate_form
+    create_document "file.txt", "something"
+    get "/file.txt/duplicate", {}, admin_session
+
+    assert_equal 200, last_response.status
+    assert_match "file_copy.txt", last_response.body
+    assert_match "Input a name for duplicate of file.txt", last_response.body
+  end
+
+  def test_view_duplicate_form_signed_out
+    create_document "file.txt", "something"
+    get "/file.txt/duplicate"
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+  end
+
+  def test_duplicate_document
+    create_document "file.txt", "something"
+    post "/file.txt/duplicate", { name: "newfile.txt" }, admin_session
+
+    assert_equal 302, last_response.status
+    assert_equal "newfile.txt has been duplicated from file.txt",
+                 session[:message]
+
+    get "/"
+    assert_match "newfile.txt", last_response.body
+
+    assert_equal "something", File.read(File.join(data_path, "newfile.txt"))
+  end
+
+  def test_duplicate_document_same_name
+    create_document "file.txt", "something"
+    create_document "file2.txt", "something else"
+    post "/file.txt/duplicate", { name: "file2.txt" }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_match "Name already exists.", last_response.body
+
+    assert_equal "something else", File.read(File.join(data_path, "file2.txt"))
+  end
+
+  def test_duplicate_document_signed_out
+    post "/file.txt/duplicate", { name: "newfile.txt" }
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+    assert_equal false, File.file?(File.join(data_path, "newfile.txt"))
+  end
+
+  def test_duplicate_document_from_invalid_document
+    post "/not_a_file.txt/duplicate", { name: "newfile.txt" }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_match "File to duplicate from doesn't exist.", last_response.body
+    assert_equal false, File.file?(File.join(data_path, "newfile.txt"))
   end
 
   def test_delete_document

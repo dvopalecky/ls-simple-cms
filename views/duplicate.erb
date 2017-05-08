@@ -1,0 +1,5 @@
+<form action="/<%= @source_filename %>/duplicate" method="post">
+  <label for="name">Input a name for duplicate of <%= @source_filename %>:</label>
+  <input type="text" name="name" value="<%= duplicate_filename(@source_filename) %>"/>
+  <button type="submit">Duplicate</button>
+</form>

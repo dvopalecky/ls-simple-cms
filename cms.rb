@@ -13,6 +13,14 @@ configure do
   set :erb, escape_html: true
 end
 
+# HELPERS CALLED FROM ERB
+# -----------------------------------------------------------------------------
+helpers do
+  def duplicate_filename(filename)
+    File.basename(filename, ".*") + "_copy" + File.extname(filename)
+  end
+end
+
 # HELPERS
 # -----------------------------------------------------------------------------
 def data_path
@@ -57,6 +65,8 @@ def validate_new_filename(filename)
     [false, "Name must contain only alphanumeric chars or . or _"]
   elsif ![".txt", ".md"].include?(File.extname(filename))
     [false, "Document must have .md or .txt extensions"]
+  elsif valid_existing_file_path(filename)
+    [false, "Name already exists."]
   else
     [true, ""]
   end
@@ -71,10 +81,17 @@ def validate_filename(filename)
   end
 end
 
-def valid_file_path(filename)
+def valid_existing_file_path(filename)
   return nil if filename.nil?
   path = File.join(data_path, filename)
   File.file?(path) ? path : nil
+end
+
+def create_new_file(filename)
+  path = File.join(data_path, filename)
+  File.write(path, "")
+  session[:message] = "#{filename} has been created"
+  redirect "/"
 end
 
 def user_signed_in?
@@ -163,7 +180,7 @@ end
 # Show document
 get "/:filename" do
   filename = validate_filename(params[:filename])
-  path = valid_file_path(filename)
+  path = valid_existing_file_path(filename)
   if path
     load_file_content(path)
   else
@@ -176,7 +193,7 @@ end
 post "/:filename" do
   redirect_if_signed_out
   filename = validate_filename(params[:filename])
-  path = valid_file_path(filename)
+  path = valid_existing_file_path(filename)
   if path
     File.write(path, params[:content])
     session[:message] = "#{filename} has been updated."
@@ -191,7 +208,7 @@ end
 get "/:filename/edit" do
   redirect_if_signed_out
   @filename = validate_filename(params[:filename])
-  path = valid_file_path(@filename)
+  path = valid_existing_file_path(@filename)
   if path
     @content = File.read(path)
     erb :edit
@@ -201,11 +218,50 @@ get "/:filename/edit" do
   end
 end
 
+# Show form for duplicating document
+get "/:source_filename/duplicate" do
+  redirect_if_signed_out
+  @source_filename = validate_filename(params[:source_filename])
+  path = valid_existing_file_path(@source_filename)
+  if path
+    erb :duplicate
+  else
+    session[:message] = "Can't duplicate non-existing document."
+    redirect "/"
+  end
+end
+
+# Duplicate document
+post "/:source_filename/duplicate" do
+  redirect_if_signed_out
+  @new_filename = params[:name]
+  validation_status, validation_msg = validate_new_filename(@new_filename)
+
+  @source_filename = validate_filename(params[:source_filename])
+  valid_source_path = valid_existing_file_path(@source_filename)
+  unless valid_source_path
+    validation_status = false
+    validation_msg = "File to duplicate from doesn't exist."
+  end
+
+  if validation_status
+    new_path = File.join(data_path, @new_filename)
+    File.write(new_path, File.read(valid_source_path))
+    session[:message] =
+      "#{@new_filename} has been duplicated from #{@source_filename}"
+    redirect "/"
+  else
+    session[:message] = validation_msg
+    status 422
+    erb :duplicate
+  end
+end
+
 # Delete document
 post "/:filename/delete" do
   redirect_if_signed_out
   @filename = validate_filename(params[:filename])
-  path = valid_file_path(@filename)
+  path = valid_existing_file_path(@filename)
   if path
     File.delete(path)
     session[:message] = "#{@filename} deleted successfully."
