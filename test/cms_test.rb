@@ -30,20 +30,16 @@ class CMSTest < Minitest::Test
     end
   end
 
+  def session
+    last_request.env['rack.session']
+  end
+
   def sign_in
     get '/autosignin'
   end
 
   def sign_off
     get '/autosignoff'
-  end
-
-  def get_response_and_assert_message(location, message)
-    get location
-
-    assert_equal 200, last_response.status
-    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_match message, last_response.body
   end
 
   def test_index_signed_off
@@ -90,10 +86,8 @@ class CMSTest < Minitest::Test
     post '/users/signin', username: 'admin', password: 'secret'
 
     assert_equal 302, last_response.status
-    redirected_location = last_response['Location']
-
-    message = 'Welcome!'
-    get_response_and_assert_message(redirected_location, message)
+    assert_equal 'Welcome!', session[:message]
+    assert_equal 'admin', session[:signed_in_user]
   end
 
   def test_sign_in_invalid_credentials
@@ -102,19 +96,20 @@ class CMSTest < Minitest::Test
 
     assert_equal 422, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    message = 'Invalid credentials'
-    assert_match message, last_response.body
+    assert_match 'Invalid credentials', last_response.body
     assert_match '<input type="text" name="username" value="test">',
                  last_response.body
+    assert_nil session[:user_signed_in]
   end
 
   def test_sign_out
     post '/users/signout'
 
     assert_equal 302, last_response.status
+    assert_equal 'You have been signed out.', session[:message]
+    assert_nil session[:user_signed_in]
 
-    message = 'You have been signed out.'
-    get_response_and_assert_message last_response['Location'], message
+    get last_response['Location']
     assert_match "You're signed off", last_response.body
   end
 
@@ -131,10 +126,7 @@ class CMSTest < Minitest::Test
     post '/', name: 'newfile.txt'
 
     assert_equal 302, last_response.status
-
-    get last_response['Location']
-    assert_equal 200, last_response.status
-    assert_match 'newfile.txt has been created', last_response.body
+    assert_equal "newfile.txt has been created", session[:message]
 
     get '/'
     assert_match 'newfile.txt', last_response.body
@@ -203,11 +195,7 @@ class CMSTest < Minitest::Test
     get '/about.md/edit'
 
     assert_equal 302, last_response.status
-
-    get last_response['Location']
-
-    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_match "Can't edit non-existing document", last_response.body
+    assert_equal "Can't edit non-existing document about.md", session[:message]
   end
 
   def test_updating_existing_document
@@ -215,11 +203,7 @@ class CMSTest < Minitest::Test
     post '/changes.txt', content: 'new content'
 
     assert_equal 302, last_response.status
-
-    get last_response['Location']
-
-    assert_equal 200, last_response.status
-    assert_match "changes.txt has been updated.", last_response.body
+    assert_equal "changes.txt has been updated.", session[:message]
 
     get '/changes.txt'
     assert_equal 200, last_response.status
@@ -230,52 +214,35 @@ class CMSTest < Minitest::Test
     post '/changes.txt', content: 'new content'
 
     assert_equal 302, last_response.status
-
-    message = "Can't edit non-existing document changes.txt"
-    get_response_and_assert_message(last_response['Location'], message)
+    assert_equal "Can't edit non-existing document changes.txt", session[:message]
   end
 
   def test_nonexisting_document
     get '/notafile.txt'
-
     assert_equal 302, last_response.status
+    assert_equal "notafile.txt doesn't exist.", session[:message]
 
-    redirected_location = last_response["Location"]
-
-    message = "notafile.txt doesn't exist."
-    get_response_and_assert_message(redirected_location, message)
-
-    get redirected_location
-
-    assert_equal 200, last_response.status
-    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    refute_match "notafile.txt doesn't exist.", last_response.body
+    get last_response["Location"]
+    assert_nil session[:message]
   end
 
   def test_delete_document
     create_document 'file.txt', 'something random'
 
     post '/file.txt/delete'
-
     assert_equal 302, last_response.status
-
-    redirected_location = last_response["Location"]
-    message = "file.txt deleted successfully."
-    get_response_and_assert_message(redirected_location, message)
+    assert_equal "file.txt deleted successfully.", session[:message]
     assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
 
-    get redirected_location
-    refute_match message, last_response.body
+    get last_response["Location"]
+    assert_nil session[:message]
   end
 
   def test_delete_nonnexisting_document
     post '/file.txt/delete'
 
     assert_equal 302, last_response.status
-
-    redirected_location = last_response["Location"]
-    message = "Can't delete non-existing document file.txt"
-    get_response_and_assert_message(redirected_location, message)
+    assert_equal "Can't delete non-existing document file.txt.", session[:message]
     assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
   end
 end
