@@ -93,6 +93,17 @@ class CMSTest < Minitest::Test
     assert_nil session[:user_signed_in]
   end
 
+  def test_sign_in_only_username
+    post "/users/signin", username: "test"
+
+    assert_equal 422, last_response.status
+    assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
+    assert_match "Invalid credentials", last_response.body
+    assert_match %q(<input type="text" name="username" value="test">),
+                 last_response.body
+    assert_nil session[:user_signed_in]
+  end
+
   def test_sign_out
     post "/users/signout"
 

@@ -4,6 +4,7 @@ require "sinatra"
 require "sinatra/reloader"
 require "tilt/erubis"
 require "redcarpet"
+require "yaml"
 
 configure do
   enable :sessions
@@ -17,6 +18,15 @@ def data_path
   else
     File.expand_path("../data", __FILE__)
   end
+end
+
+def load_users_credentials
+  credentials_path = if ENV["RACK_ENV"] == "test"
+                       File.expand_path("../test/users.yml", __FILE__)
+                     else
+                       File.expand_path("../users.yml", __FILE__)
+                     end
+  YAML.load_file(credentials_path)
 end
 
 def render_markdown(text)
@@ -82,15 +92,20 @@ post "/users/signin" do
   if user_signed_in?
     session[:message] = "You're already signed in"
     redirect "/"
-  elsif params[:username] == "admin" && params[:password] == "secret"
-    session[:signed_in_user] = params[:username]
-    session[:message] = "Welcome!"
-    redirect "/"
   else
-    session[:message] = "Invalid credentials"
-    @username = params[:username]
-    status 422
-    erb :sign_in
+    credentials = load_users_credentials
+    username = params[:username]
+    if credentials.has_key?(username) &&
+       credentials[username] == params[:password]
+      session[:signed_in_user] = params[:username]
+      session[:message] = "Welcome!"
+      redirect "/"
+    else
+      session[:message] = "Invalid credentials"
+      @username = params[:username]
+      status 422
+      erb :sign_in
+    end
   end
 end
 
