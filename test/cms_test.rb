@@ -15,7 +15,6 @@ class CMSTest < Minitest::Test
 
   def setup
     FileUtils.mkdir_p(data_path)
-    sign_in
   end
 
   def teardown
@@ -30,20 +29,15 @@ class CMSTest < Minitest::Test
     end
   end
 
+  def admin_session
+    { "rack.session" => { signed_in_user: "admin" } }
+  end
+
   def session
     last_request.env['rack.session']
   end
 
-  def sign_in
-    get '/autosignin'
-  end
-
-  def sign_off
-    get '/autosignoff'
-  end
-
   def test_index_signed_off
-    sign_off
     get '/'
 
     assert_equal 200, last_response.status
@@ -56,7 +50,7 @@ class CMSTest < Minitest::Test
     create_document 'about.md'
     create_document 'changes.txt'
 
-    get '/'
+    get '/', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
@@ -71,7 +65,6 @@ class CMSTest < Minitest::Test
   end
 
   def test_sign_in_form
-    sign_off
     get '/users/signin'
 
     assert_equal 200, last_response.status
@@ -82,7 +75,6 @@ class CMSTest < Minitest::Test
   end
 
   def test_sign_in_valid_credentials
-    sign_off
     post '/users/signin', username: 'admin', password: 'secret'
 
     assert_equal 302, last_response.status
@@ -91,7 +83,6 @@ class CMSTest < Minitest::Test
   end
 
   def test_sign_in_invalid_credentials
-    sign_off
     post '/users/signin', username: 'test', password: 'test'
 
     assert_equal 422, last_response.status
@@ -114,7 +105,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_view_new_document_form
-    get '/new'
+    get '/new', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_match 'Add a new document', last_response.body
@@ -122,8 +113,14 @@ class CMSTest < Minitest::Test
     assert_match '<form action="/"', last_response.body
   end
 
+  def test_view_new_document_form_signed_out
+    get '/new'
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+  end
+
   def test_create_new_document
-    post '/', name: 'newfile.txt'
+    post '/', { name: 'newfile.txt' }, admin_session
 
     assert_equal 302, last_response.status
     assert_equal "newfile.txt has been created", session[:message]
@@ -136,21 +133,31 @@ class CMSTest < Minitest::Test
     assert_equal '', last_response.body
   end
 
+  def test_create_new_document_signed_out
+    post '/', name: 'newfile.txt'
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    assert_equal false, File.file?(File.join(data_path, 'newfile.txt'))
+  end
+
   def test_create_new_document_invalid_path
-    post '/', name: '../hello.txt'
+    post '/', { name: '../hello.txt' }, admin_session
 
     assert_equal 422, last_response.status
     assert_match 'Name must contain only alphanumeric chars or . or _', last_response.body
   end
 
   def test_create_new_document_invalid_extension
-    post '/', name: 'hello'
+    post '/', { name: 'hello' }, admin_session
 
     assert_equal 422, last_response.status
     assert_match 'Document must have .md or .txt extensions', last_response.body
   end
 
   def test_create_new_document_empty_name
+    get '/', {}, admin_session
     post '/', name: ''
 
     assert_equal 422, last_response.status
@@ -183,7 +190,7 @@ class CMSTest < Minitest::Test
     content = "# Jan Amos Komensky\n\n## Basic info\n"
     create_document 'about.md', content
 
-    get '/about.md/edit'
+    get '/about.md/edit', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
@@ -191,8 +198,16 @@ class CMSTest < Minitest::Test
     assert_match "<button type=\"submit\"", last_response.body
   end
 
-  def test_view_edit_form_nonexisting_document
+  def test_view_edit_form_signed_out
+    create_document 'about.md', "# something"
     get '/about.md/edit'
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+  end
+
+  def test_view_edit_form_nonexisting_document
+    get '/about.md/edit', {}, admin_session
 
     assert_equal 302, last_response.status
     assert_equal "Can't edit non-existing document about.md", session[:message]
@@ -200,7 +215,7 @@ class CMSTest < Minitest::Test
 
   def test_updating_existing_document
     create_document 'changes.txt', 'something random'
-    post '/changes.txt', content: 'new content'
+    post '/changes.txt', { content: 'new content' }, admin_session
 
     assert_equal 302, last_response.status
     assert_equal "changes.txt has been updated.", session[:message]
@@ -210,8 +225,18 @@ class CMSTest < Minitest::Test
     assert_match 'new content', last_response.body
   end
 
-  def test_updating_nonexisting_document
+  def test_updating_existing_document_signed_off
+    create_document 'changes.txt', 'old'
     post '/changes.txt', content: 'new content'
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+
+    assert_equal 'old', File.read(File.join(data_path, 'changes.txt'))
+  end
+
+  def test_updating_nonexisting_document
+    post '/changes.txt', { content: 'new content' }, admin_session
 
     assert_equal 302, last_response.status
     assert_equal "Can't edit non-existing document changes.txt", session[:message]
@@ -227,22 +252,31 @@ class CMSTest < Minitest::Test
   end
 
   def test_delete_document
-    create_document 'file.txt', 'something random'
+    create_document 'file.txt', 'something'
+    post '/file.txt/delete', {}, admin_session
 
-    post '/file.txt/delete'
     assert_equal 302, last_response.status
     assert_equal "file.txt deleted successfully.", session[:message]
-    assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
+    assert_equal false, File.file?(File.join(data_path, 'file.txt'))
 
     get last_response["Location"]
     assert_nil session[:message]
   end
 
-  def test_delete_nonnexisting_document
+  def test_delete_document_singed_off
+    create_document 'file.txt', 'something'
+
     post '/file.txt/delete'
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+    assert_equal true, File.file?(File.join(data_path, 'file.txt'))
+  end
+
+  def test_delete_nonnexisting_document
+    post '/file.txt/delete', {}, admin_session
 
     assert_equal 302, last_response.status
     assert_equal "Can't delete non-existing document file.txt.", session[:message]
-    assert_equal(false, File.file?(File.join(data_path, 'file.txt')))
+    assert_equal false, File.file?(File.join(data_path, 'file.txt'))
   end
 end

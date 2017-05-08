@@ -38,35 +38,27 @@ def validate_filename(filename)
 end
 
 def user_signed_in?
-  session[:signed_in_user]
+  !!session[:signed_in_user]
 end
 
-get '/autosignin' do
-  session[:signed_in_user] = 'admin'
-  session[:message] = "You were signed in."
-  redirect '/'
-end
-
-get '/autosignoff' do
-  session.delete :signed_in_user
-  session[:message] = "You were signed out."
-  redirect '/'
+def redirect_if_signed_out
+  unless user_signed_in?
+    session[:message] = "You must be signed in to do that."
+    redirect '/'
+  end
 end
 
 # Show index
 get '/' do
-  if user_signed_in?
-    pattern = File.join(data_path, '*')
-    @files = Dir[pattern].select { |path| File.file?(path) }
-    @files = @files.map! { |file| File.basename(file) }
-    erb :index
-  else
-    erb :signed_off
-  end
+  pattern = File.join(data_path, '*')
+  @files = Dir[pattern].select { |path| File.file?(path) }
+  @files = @files.map! { |file| File.basename(file) }
+  erb :index
 end
 
 # Create new document
 post '/' do
+  redirect_if_signed_out
   name = params[:name].strip
   validation_status, validation_msg = validate_filename(name)
   if validation_status
@@ -114,6 +106,7 @@ end
 
 # Show form for new document
 get '/new' do
+  redirect_if_signed_out
   erb :new
 end
 
@@ -136,6 +129,7 @@ end
 
 # Submit edits of document
 post '/:filename' do
+  redirect_if_signed_out
   path = File.join(data_path, params[:filename])
   if File.file?(path)
     File.write(path, params[:content])
@@ -149,6 +143,7 @@ end
 
 # Show form for editing document
 get '/:filename/edit' do
+  redirect_if_signed_out
   @filename = params[:filename]
   path = File.join(data_path, @filename)
   if File.file?(path)
@@ -162,6 +157,7 @@ end
 
 # Delete document
 post '/:filename/delete' do
+  redirect_if_signed_out
   @filename = params[:filename]
   path = File.join(data_path, @filename)
   if File.file?(path)
