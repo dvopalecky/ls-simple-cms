@@ -1,11 +1,11 @@
-source 'https://rubygems.org'
+source "https://rubygems.org"
 
-ruby '2.2.0'
+ruby "2.2.0"
 
-gem 'sinatra'
-gem 'sinatra-contrib'
-gem 'erubis'
-gem 'redcarpet'
-# gem 'fileutils'
+gem "sinatra"
+gem "sinatra-contrib"
+gem "erubis"
+gem "redcarpet"
+gem "bcrypt"
 
-gem 'minitest'
+gem "minitest"
