@@ -1,2 +1,2 @@
-require './cms'
+require "./cms"
 run Sinatra::Application

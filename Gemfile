@@ -9,3 +9,7 @@ gem "redcarpet"
 gem "bcrypt"
 
 gem "minitest"
+
+group :production do
+  gem "puma"
+end

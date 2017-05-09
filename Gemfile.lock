@@ -6,6 +6,7 @@ GEM
     erubis (2.7.0)
     minitest (5.4.3)
     multi_json (1.12.1)
+    puma (3.8.1)
     rack (1.6.5)
     rack-protection (1.5.3)
       rack
@@ -32,6 +33,7 @@ DEPENDENCIES
   bcrypt
   erubis
   minitest
+  puma
   redcarpet
   sinatra
   sinatra-contrib
