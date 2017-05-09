@@ -33,7 +33,8 @@ class CMSTest < Minitest::Test
   end
 
   def create_users_yml
-    File.write(credentials_path, "---\nadmin: $2a$10$0gzcsE5GciHDrKiiuOASJeTpTUxIPKMEe7/PpaymkWzLIm0yzco/K\n")
+    File.write(credentials_path, "---\nadmin: "\
+      "$2a$10$0gzcsE5GciHDrKiiuOASJeTpTUxIPKMEe7/PpaymkWzLIm0yzco/K\n")
   end
 
   def admin_session
@@ -50,37 +51,42 @@ class CMSTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_match "You're signed off", last_response.body
     assert_match "<button", last_response.body
-    assert_match %q(href="/users/signin"), last_response.body
+    assert_match 'href="/users/signin"', last_response.body
   end
 
   def test_index
-    create_document "about.md"
-    create_document "changes.txt"
-
     get "/", {}, admin_session
 
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
-    assert_match "about.md", last_response.body
-    assert_match "changes.txt", last_response.body
-    assert_match %q(<a href="/about.md/edit">Edit</a>), last_response.body
-    assert_match %q(<a href="/about.md/duplicate">Duplicate</a>), last_response.body
-    assert_match %q(<a href="/new">New document</a>), last_response.body
-    assert_match %q(<a href="/upload_image">Upload image</a>), last_response.body
-    assert_match %q(<form action="/changes.txt/delete"), last_response.body
+    assert_match '<a href="/new">New document</a>', last_response.body
+    assert_match '<a href="/upload_image">Upload image</a>', last_response.body
     assert_match "<button", last_response.body
     assert_match "Signed in as admin", last_response.body
     assert_match "Sign out", last_response.body
   end
 
+  def test_index_documents
+    create_document "about.md"
+    create_document "changes.txt"
+
+    get "/", {}, admin_session
+
+    assert_match "about.md", last_response.body
+    assert_match "changes.txt", last_response.body
+    assert_match '<a href="/about.md/edit">Edit</a>', last_response.body
+    assert_match '<a href="/about.md/duplicate">Duplicate</a>',
+                 last_response.body
+    assert_match '<form action="/changes.txt/delete"', last_response.body
+  end
+
   def test_index_images
     FileUtils.copy_file(File.expand_path("../test_image.png", __FILE__),
-      File.join(images_path, "test_image.png"))
+                        File.join(images_path, "test_image.png"))
     get "/", {}, admin_session
 
     assert_match "images/test_image.png", last_response.body
   end
-
 
   def test_sign_in_form
     get "/users/signin"
@@ -90,7 +96,7 @@ class CMSTest < Minitest::Test
     assert_match "Password", last_response.body
     assert_match "<form", last_response.body
     assert_match "<button", last_response.body
-    assert_match %q(<a href="/users/signup">Sign up</a>), last_response.body
+    assert_match '<a href="/users/signup">Sign up</a>', last_response.body
   end
 
   def test_sign_in_valid_credentials
@@ -109,7 +115,7 @@ class CMSTest < Minitest::Test
     assert_equal 422, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_match "Invalid credentials", last_response.body
-    assert_match %q(<input type="text" name="username" value="test">),
+    assert_match '<input type="text" name="username" value="test">',
                  last_response.body
     assert_nil session[:user_signed_in]
   end
@@ -121,7 +127,7 @@ class CMSTest < Minitest::Test
     assert_equal 422, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_match "Invalid credentials", last_response.body
-    assert_match %q(<input type="text" name="username" value="test">),
+    assert_match '<input type="text" name="username" value="test">',
                  last_response.body
     assert_nil session[:user_signed_in]
   end
@@ -149,7 +155,7 @@ class CMSTest < Minitest::Test
 
   def test_sign_up
     create_users_yml
-    post "/users/signup", { username: "newuser", password: "spiderman" }
+    post "/users/signup", username: "newuser", password: "spiderman"
 
     assert_equal 302, last_response.status
     assert_equal "User newuser successfully created", session[:message]
@@ -163,7 +169,7 @@ class CMSTest < Minitest::Test
 
   def test_sign_up_existing_user
     create_users_yml
-    post "/users/signup", { username: "admin", password: "spiderman" }
+    post "/users/signup", username: "admin", password: "spiderman"
 
     assert_equal 422, last_response.status
     assert_match "Username already exists", last_response.body
@@ -175,7 +181,7 @@ class CMSTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_match "Add a new document", last_response.body
     assert_match "<input", last_response.body
-    assert_match %q(<form action="/"), last_response.body
+    assert_match '<form action="/"', last_response.body
   end
 
   def test_view_new_document_form_signed_out
@@ -369,7 +375,7 @@ class CMSTest < Minitest::Test
   end
 
   def test_duplicate_document_signed_out
-    post "/file.txt/duplicate", { name: "newfile.txt" }
+    post "/file.txt/duplicate", name: "newfile.txt"
 
     assert_equal 302, last_response.status
     assert_equal "You must be signed in to do that.", session[:message]
@@ -430,7 +436,7 @@ class CMSTest < Minitest::Test
 
   def test_upload_image
     image_path = File.expand_path("../test_image.png", __FILE__)
-    post "/upload_image", {"file" =>
+    post "/upload_image", { "file" =>
       Rack::Test::UploadedFile.new(image_path, "image/png") }, admin_session
     assert_equal 302, last_response.status
     assert_equal "Image has been uploaded successfully.", session[:message]
@@ -439,8 +445,8 @@ class CMSTest < Minitest::Test
 
   def test_upload_image_signed_out
     image_path = File.expand_path("../test_image.png", __FILE__)
-    post "/upload_image", {"file" =>
-      Rack::Test::UploadedFile.new(image_path, "image/png") }
+    post "/upload_image", "file" =>
+      Rack::Test::UploadedFile.new(image_path, "image/png")
 
     assert_equal 302, last_response.status
     assert_equal "You must be signed in to do that.", session[:message]
@@ -449,7 +455,7 @@ class CMSTest < Minitest::Test
 
   def test_upload_image_wrong_extension
     image_path = File.expand_path("../test.txt", __FILE__)
-    post "/upload_image", {"file" =>
+    post "/upload_image", { "file" =>
       Rack::Test::UploadedFile.new(image_path, "image/png") }, admin_session
     assert_equal 422, last_response.status
     assert_match "Unsupported image format.", last_response.body

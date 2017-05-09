@@ -40,7 +40,6 @@ def images_path
   else
     File.expand_path("../public/images", __FILE__)
   end
-  #File.join(settings.public_folder, "images")
 end
 
 def load_file_content(path)
@@ -89,11 +88,8 @@ end
 
 def validate_filename(filename)
   filename = File.basename(filename)
-  if [".txt", ".md"].include?(File.extname(filename))
-    filename
-  else
-    nil
-  end
+  return filename if [".txt", ".md"].include?(File.extname(filename))
+  nil
 end
 
 def valid_existing_file_path(filename)
@@ -143,7 +139,7 @@ get "/" do
   @files = @files.map! { |file| File.basename(file) }
 
   image_pattern = File.join(images_path, "*.{png,jpg}")
-  @images = Dir[image_pattern].select { |path| File.file?(path)}
+  @images = Dir[image_pattern].select { |path| File.file?(path) }
   @images = @images.map! { |image| File.basename(image) }
 
   erb :index
@@ -176,17 +172,15 @@ post "/users/signin" do
   if user_signed_in?
     session[:message] = "You're already signed in"
     redirect "/"
+  elsif valid_login?(params[:username], params[:password])
+    session[:signed_in_user] = params[:username]
+    session[:message] = "Welcome!"
+    redirect "/"
   else
-    if valid_login?(params[:username], params[:password])
-      session[:signed_in_user] = params[:username]
-      session[:message] = "Welcome!"
-      redirect "/"
-    else
-      session[:message] = "Invalid credentials"
-      @username = params[:username]
-      status 422
-      erb :sign_in
-    end
+    session[:message] = "Invalid credentials"
+    @username = params[:username]
+    status 422
+    erb :sign_in
   end
 end
 
@@ -207,10 +201,10 @@ post "/users/signup" do
   username = params[:username]
   if valid_new_username?(username)
     credentials = load_users_credentials
-    credentials[username] = BCrypt::Password::create(params[:password]).to_s
+    credentials[username] = BCrypt::Password.create(params[:password]).to_s
     session[:message] = "User #{username} successfully created"
     File.write(credentials_path, credentials.to_yaml)
-    redirect '/users/signin'
+    redirect "/users/signin"
   else
     session[:message] = "Invalid username."\
       "Username already exists or contains invalid characters."
@@ -238,7 +232,7 @@ post "/upload_image" do
   @filename = params[:file][:filename]
   if %w(.png .jpg).include?(File.extname(@filename))
     File.binwrite(File.join(images_path, @filename),
-      params[:file][:tempfile].read)
+                  params[:file][:tempfile].read)
 
     session[:message] = "Image has been uploaded successfully."
     redirect "/"
