@@ -22,6 +22,7 @@ class CMSTest < Minitest::Test
     FileUtils.rm Dir[File.join(data_path, "*.txt")]
     FileUtils.rm Dir[File.join(data_path, "invalid_extension.rb")]
     FileUtils.rm Dir[credentials_path]
+    FileUtils.rm Dir[File.join(images_path, "*")]
     FileUtils.rmdir data_path
   end
 
@@ -65,11 +66,21 @@ class CMSTest < Minitest::Test
     assert_match %q(<a href="/about.md/edit">Edit</a>), last_response.body
     assert_match %q(<a href="/about.md/duplicate">Duplicate</a>), last_response.body
     assert_match %q(<a href="/new">New document</a>), last_response.body
+    assert_match %q(<a href="/upload_image">Upload image</a>), last_response.body
     assert_match %q(<form action="/changes.txt/delete"), last_response.body
     assert_match "<button", last_response.body
     assert_match "Signed in as admin", last_response.body
     assert_match "Sign out", last_response.body
   end
+
+  def test_index_images
+    FileUtils.copy_file(File.expand_path("../test_image.png", __FILE__),
+      File.join(images_path, "test_image.png"))
+    get "/", {}, admin_session
+
+    assert_match "images/test_image.png", last_response.body
+  end
+
 
   def test_sign_in_form
     get "/users/signin"
@@ -385,7 +396,7 @@ class CMSTest < Minitest::Test
     assert_nil session[:message]
   end
 
-  def test_delete_document_singed_off
+  def test_delete_document_signed_out
     create_document "file.txt", "something"
 
     post "/file.txt/delete"
@@ -401,5 +412,46 @@ class CMSTest < Minitest::Test
     assert_equal "Can't delete non-existing document.",
                  session[:message]
     assert_equal false, File.file?(File.join(data_path, "file.txt"))
+  end
+
+  def test_upload_image_form
+    get "/upload_image", {}, admin_session
+
+    assert_equal 200, last_response.status
+    assert_match "<form", last_response.body
+  end
+
+  def test_upload_image_form_signed_out
+    get "/upload_image"
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+  end
+
+  def test_upload_image
+    image_path = File.expand_path("../test_image.png", __FILE__)
+    post "/upload_image", {"file" =>
+      Rack::Test::UploadedFile.new(image_path, "image/png") }, admin_session
+    assert_equal 302, last_response.status
+    assert_equal "Image has been uploaded successfully.", session[:message]
+    assert_equal true, File.file?(File.join(images_path, "test_image.png"))
+  end
+
+  def test_upload_image_signed_out
+    image_path = File.expand_path("../test_image.png", __FILE__)
+    post "/upload_image", {"file" =>
+      Rack::Test::UploadedFile.new(image_path, "image/png") }
+
+    assert_equal 302, last_response.status
+    assert_equal "You must be signed in to do that.", session[:message]
+    assert_equal false, File.file?(File.join(images_path, "test_image.png"))
+  end
+
+  def test_upload_image_wrong_extension
+    image_path = File.expand_path("../test.txt", __FILE__)
+    post "/upload_image", {"file" =>
+      Rack::Test::UploadedFile.new(image_path, "image/png") }, admin_session
+    assert_equal 422, last_response.status
+    assert_match "Unsupported image format.", last_response.body
   end
 end

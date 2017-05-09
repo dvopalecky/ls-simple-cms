@@ -5,3 +5,5 @@
 * 1592 - narozen na Moravě
 * 1608-1611 - Gymnázium Přerov
 * 1642 - Švédsko
+
+![alt text](images/komensky.png "Komensky")

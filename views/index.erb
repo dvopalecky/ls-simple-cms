@@ -1,3 +1,4 @@
+<h2>Documents</h2>
 <ul>
   <% @files.each do |file| %>
     <li>
@@ -11,6 +12,17 @@
   <% end %>
 </ul>
 <p><a href="/new">New document</a></p>
+
+<h2>Images</h2>
+<ul>
+  <% @images.each do |image| %>
+    <li>
+      <a href="/images/<%= image %>"><%= image %></a>
+    </li>
+  <% end %>
+</ul>
+<p><a href="/upload_image">Upload image</a></p>
+<h2>User info</h2>
 <p>
   <% if session[:signed_in_user] %>
     <form action="/users/signout" method="post" class="inline">

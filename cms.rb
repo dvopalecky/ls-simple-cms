@@ -11,6 +11,9 @@ configure do
   enable :sessions
   set :session_secret, "secret"
   set :erb, escape_html: true
+  if ENV["RACK_ENV"] == "test"
+    set :public_folder, File.expand_path("/public", __FILE__)
+  end
 end
 
 # HELPERS CALLED FROM ERB
@@ -29,6 +32,15 @@ def data_path
   else
     File.expand_path("../data", __FILE__)
   end
+end
+
+def images_path
+  if ENV["RACK_ENV"] == "test"
+    File.expand_path("../test/public/images", __FILE__)
+  else
+    File.expand_path("../public/images", __FILE__)
+  end
+  #File.join(settings.public_folder, "images")
 end
 
 def load_file_content(path)
@@ -129,6 +141,11 @@ get "/" do
     File.file?(path) && validate_filename(path)
   end
   @files = @files.map! { |file| File.basename(file) }
+
+  image_pattern = File.join(images_path, "*.{png,jpg}")
+  @images = Dir[image_pattern].select { |path| File.file?(path)}
+  @images = @images.map! { |image| File.basename(image) }
+
   erb :index
 end
 
@@ -206,6 +223,30 @@ end
 get "/new" do
   redirect_if_signed_out
   erb :new
+end
+
+# Show form for uploading image
+get "/upload_image" do
+  redirect_if_signed_out
+  erb :upload_image
+end
+
+# Upload image
+post "/upload_image" do
+  redirect_if_signed_out
+
+  @filename = params[:file][:filename]
+  if %w(.png .jpg).include?(File.extname(@filename))
+    File.binwrite(File.join(images_path, @filename),
+      params[:file][:tempfile].read)
+
+    session[:message] = "Image has been uploaded successfully."
+    redirect "/"
+  else
+    session[:message] = "Unsupported image format."
+    status 422
+    erb :upload_image
+  end
 end
 
 # Show document
