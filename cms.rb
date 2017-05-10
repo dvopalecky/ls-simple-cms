@@ -305,8 +305,8 @@ end
 # Duplicate document
 post "/:source_filename/duplicate" do
   redirect_if_signed_out
-  @new_filename = params[:name]
-  validation_status, validation_msg = validate_new_filename(@new_filename)
+  new_filename = params[:name]
+  validation_status, validation_msg = validate_new_filename(new_filename)
 
   @source_filename = validate_filename(params[:source_filename])
   valid_source_path = valid_existing_file_path(@source_filename)
@@ -316,10 +316,10 @@ post "/:source_filename/duplicate" do
   end
 
   if validation_status
-    new_path = File.join(data_path, @new_filename)
+    new_path = File.join(data_path, new_filename)
     File.write(new_path, File.read(valid_source_path))
     session[:message] =
-      "#{@new_filename} has been duplicated from #{@source_filename}"
+      "#{new_filename} has been duplicated from #{@source_filename}"
     redirect "/"
   else
     session[:message] = validation_msg
