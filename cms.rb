@@ -112,7 +112,9 @@ end
 def redirect_if_signed_out
   return if user_signed_in?
   session[:message] = "You must be signed in to do that."
-  redirect "/"
+  get_list_of_files_and_images
+  status 403
+  halt erb :index
 end
 
 def valid_login?(username, input_password)
@@ -128,10 +130,7 @@ def valid_new_username?(username)
   true
 end
 
-# ROUTES
-# -----------------------------------------------------------------------------
-# Show index
-get "/" do
+def get_list_of_files_and_images
   pattern = File.join(data_path, "*")
   @files = Dir[pattern].select do |path|
     File.file?(path) && validate_filename(path)
@@ -141,7 +140,13 @@ get "/" do
   image_pattern = File.join(images_path, "*.{png,jpg}")
   @images = Dir[image_pattern].select { |path| File.file?(path) }
   @images = @images.map! { |image| File.basename(image) }
+end
 
+# ROUTES
+# -----------------------------------------------------------------------------
+# Show index
+get "/" do
+  get_list_of_files_and_images
   erb :index
 end
 

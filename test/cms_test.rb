@@ -45,6 +45,11 @@ class CMSTest < Minitest::Test
     last_request.env["rack.session"]
   end
 
+  def assert_403_and_signed_out_msg
+    assert_equal 403, last_response.status
+    assert_match "You must be signed in to do that.", last_response.body
+  end
+
   def test_index_signed_off
     get "/"
 
@@ -186,8 +191,7 @@ class CMSTest < Minitest::Test
 
   def test_view_new_document_form_signed_out
     get "/new"
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
   end
 
   def test_create_new_document
@@ -207,8 +211,7 @@ class CMSTest < Minitest::Test
   def test_create_new_document_signed_out
     post "/", name: "newfile.txt"
 
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
 
     assert_equal false, File.file?(File.join(data_path, "newfile.txt"))
   end
@@ -273,9 +276,7 @@ class CMSTest < Minitest::Test
   def test_view_edit_form_signed_out
     create_document "about.md", "# something"
     get "/about.md/edit"
-
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
   end
 
   def test_view_edit_form_nonexisting_document
@@ -309,9 +310,7 @@ class CMSTest < Minitest::Test
     create_document "changes.txt", "old"
     post "/changes.txt", content: "new content"
 
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
-
+    assert_403_and_signed_out_msg
     assert_equal "old", File.read(File.join(data_path, "changes.txt"))
   end
 
@@ -345,8 +344,7 @@ class CMSTest < Minitest::Test
     create_document "file.txt", "something"
     get "/file.txt/duplicate"
 
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
   end
 
   def test_duplicate_document
@@ -377,8 +375,7 @@ class CMSTest < Minitest::Test
   def test_duplicate_document_signed_out
     post "/file.txt/duplicate", name: "newfile.txt"
 
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
     assert_equal false, File.file?(File.join(data_path, "newfile.txt"))
   end
 
@@ -406,8 +403,7 @@ class CMSTest < Minitest::Test
     create_document "file.txt", "something"
 
     post "/file.txt/delete"
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
     assert_equal true, File.file?(File.join(data_path, "file.txt"))
   end
 
@@ -430,8 +426,7 @@ class CMSTest < Minitest::Test
   def test_upload_image_form_signed_out
     get "/upload_image"
 
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
   end
 
   def test_upload_image
@@ -448,8 +443,7 @@ class CMSTest < Minitest::Test
     post "/upload_image", "file" =>
       Rack::Test::UploadedFile.new(image_path, "image/png")
 
-    assert_equal 302, last_response.status
-    assert_equal "You must be signed in to do that.", session[:message]
+    assert_403_and_signed_out_msg
     assert_equal false, File.file?(File.join(images_path, "test_image.png"))
   end
 
